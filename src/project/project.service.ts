@@ -27,7 +27,6 @@ export class ProjectService {
       this.columnRepository.create({
         title,
         position: index,
-        workspace: { id: workspaceId } as any,
         project: savedProject,
       }),
     );
@@ -36,14 +35,14 @@ export class ProjectService {
     return savedProject;
   }
 
-  async findAllByWorkspace(workspaceId: number): Promise<Project[]> {
+  async findAllByWorkspace(workspaceId: string): Promise<Project[]> {
     return this.projectRepository.find({
       where: { workspace: { id: workspaceId } },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findOne(projectId: number, workspaceId: number): Promise<Project> {
+  async findOne(projectId: number, workspaceId: string): Promise<Project> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId, workspace: { id: workspaceId } },
       relations: ['columns', 'tasks'],
@@ -55,7 +54,16 @@ export class ProjectService {
     return project;
   }
 
-  async remove(projectId: number, workspaceId: number): Promise<{ message: string }> {
+  async update(projectId: number, workspaceId: string, updateDto: Partial<CreateProjectDto>): Promise<Project> {
+    const project = await this.findOne(projectId, workspaceId);
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    Object.assign(project, updateDto);
+    return this.projectRepository.save(project);
+  }
+
+  async remove(projectId: number, workspaceId: string): Promise<{ message: string }> {
     const project = await this.findOne(projectId, workspaceId);
     await this.projectRepository.remove(project);
     return { message: 'Project deleted successfully along with all related data' };

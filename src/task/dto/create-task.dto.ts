@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsDateString, IsUUID } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString({ message: 'the title must be a string' })
@@ -13,9 +13,9 @@ export class CreateTaskDto {
   @IsNotEmpty({ message: 'the column ID is required' })
   columnId!: number;
 
-  @IsNumber()
+  @IsUUID() 
   @IsOptional()
-  assigneeId?: number;
+  assigneeId?: string;
 
   @IsDateString()
   @IsOptional()

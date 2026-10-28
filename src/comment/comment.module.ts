@@ -3,6 +3,7 @@ import { CommentService } from './comment.service';
 import { CommentController } from './comment.controller';
 import { WorkspaceModule } from 'src/workspace/workspace.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Comment } from './comment.entity';
 
 @Module({
   imports: [

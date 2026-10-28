@@ -20,7 +20,7 @@ export class CommentService {
 
     const savedComment = await this.commentRepository.save(comment);
     
-    return this.commentRepository.findOne({
+    return this.commentRepository.findOneOrFail({
       where: { id: savedComment.id },
       relations: ['author'],
     });
@@ -44,7 +44,7 @@ export class CommentService {
       throw new NotFoundException('the comment does not exist');
     }
 
-    if (comment.author.id !== userId) {
+    if (comment.author.id !== String(userId)) {
       throw new ForbiddenException('you are not the owner of this comment');
     }
 

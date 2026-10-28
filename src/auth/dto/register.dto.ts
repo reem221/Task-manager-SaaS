@@ -1,8 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { SystemRole } from 'src/common/enums/roles.enum';
 
 export class RegisterDto {
   @IsString({ message: 'name must be a string' })
   @IsNotEmpty({ message: 'name is required' })
+  @MaxLength(100)
   name!: string;
 
   @IsEmail({}, { message: 'please enter a valid email address' })
@@ -17,4 +19,10 @@ export class RegisterDto {
   @IsString()
   @IsOptional() 
   country?: string;
+}
+
+export class AdminRegisterDto extends RegisterDto {
+  @IsOptional()
+  @IsEnum(SystemRole)
+  systemRole?: SystemRole;
 }

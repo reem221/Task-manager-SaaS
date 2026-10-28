@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Task } from "./task.entity";
-import { Repository } from "typeorm/browser/repository/Repository.js";
-import { KanbanColumn } from "src/column/column.entity";
-import { CreateTaskDto } from "./dto/create-task.dto";
-import { UpdateTaskDto } from "./dto/update-task.dto";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Task } from './task.entity';
+import { KanbanColumn } from 'src/column/column.entity';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 
 @Injectable()
 export class TaskService {
@@ -16,71 +16,85 @@ export class TaskService {
     private readonly columnRepository: Repository<KanbanColumn>,
   ) {}
 
-  async create(workspaceId: number, createTaskDto: CreateTaskDto): Promise<Task> {
-    const { title, description, columnId, assigneeId, dueDate } = createTaskDto;
-
+  private async getColumnOrFail(columnId: number, projectId: number, workspaceId: string) {
     const column = await this.columnRepository.findOne({
-      where: { id: columnId, workspace: { id: workspaceId } },
+      where: {
+        id: columnId,
+        project: { id: projectId, workspace: { id: workspaceId } },
+      },
     });
-
     if (!column) {
-      throw new NotFoundException('the specified column does not exist in this workspace');
+      throw new NotFoundException('Column does not exist in this project');
     }
+    return column;
+  }
+
+  async create(workspaceId: string, projectId: number, dto: CreateTaskDto): Promise<Task> {
+    const { title, description, columnId, assigneeId, dueDate } = dto;
+
+    const column = await this.getColumnOrFail(columnId, projectId, workspaceId);
 
     const task = this.taskRepository.create({
       title,
       description,
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      workspace: { id: workspaceId } as any,
-      column: { id: columnId } as any,
-      assignee: assigneeId ? ({ id: assigneeId } as any) : null,
+      column,
+      project: { id: projectId },
+      assignee: assigneeId ? { id: assigneeId } : undefined,
     });
 
     return this.taskRepository.save(task);
   }
 
-  async findAllByWorkspace(workspaceId: number): Promise<Task[]> {
+  async findAllByProject(workspaceId: string, projectId: number): Promise<Task[]> {
     return this.taskRepository.find({
-      where: { workspace: { id: workspaceId } },
-      relations: ['column', 'assignee'], 
+      where: { project: { id: projectId, workspace: { id: workspaceId } } },
+      relations: ['column', 'assignee'],
       order: { createdAt: 'DESC' },
     });
   }
 
-  async update(taskId: number, workspaceId: number, updateTaskDto: UpdateTaskDto): Promise<Task> {
+  async update(
+    taskId: number,
+    workspaceId: string,
+    projectId: number,
+    dto: UpdateTaskDto,
+  ): Promise<Task> {
     const task = await this.taskRepository.findOne({
-      where: { id: taskId, workspace: { id: workspaceId } },
+      where: {
+        id: taskId,
+        project: { id: projectId, workspace: { id: workspaceId } },
+      },
     });
-
     if (!task) {
-      throw new NotFoundException('the specified task does not exist in this workspace');
+      throw new NotFoundException('Task does not exist in this project');
     }
 
-    if (updateTaskDto.columnId) {
-      task.column = { id: updateTaskDto.columnId } as any;
+    if (dto.columnId) {
+      task.column = await this.getColumnOrFail(dto.columnId, projectId, workspaceId);
     }
-
-    if (updateTaskDto.assigneeId !== undefined) {
-      task.assignee = updateTaskDto.assigneeId ? ({ id: updateTaskDto.assigneeId } as any) : null;
+    if (dto.assigneeId !== undefined) {
+      task.assignee = dto.assigneeId ? ({ id: dto.assigneeId } as any) : null;
     }
-
-    if (updateTaskDto.title) task.title = updateTaskDto.title;
-    if (updateTaskDto.description !== undefined) task.description = updateTaskDto.description;
-    if (updateTaskDto.dueDate) task.dueDate = new Date(updateTaskDto.dueDate);
+    if (dto.title) task.title = dto.title;
+    if (dto.description !== undefined) task.description = dto.description;
+    if (dto.dueDate) task.dueDate = new Date(dto.dueDate);
 
     return this.taskRepository.save(task);
   }
 
-  async remove(taskId: number, workspaceId: number): Promise<{ message: string }> {
+  async remove(taskId: number, workspaceId: string, projectId: number): Promise<{ message: string }> {
     const task = await this.taskRepository.findOne({
-      where: { id: taskId, workspace: { id: workspaceId } },
+      where: {
+        id: taskId,
+        project: { id: projectId, workspace: { id: workspaceId } },
+      },
     });
-
     if (!task) {
-      throw new NotFoundException('the specified task does not exist in this workspace');
+      throw new NotFoundException('Task does not exist in this project');
     }
 
     await this.taskRepository.remove(task);
-    return { message: 'the task has been deleted successfully' };
+    return { message: 'The task has been deleted successfully' };
   }
 }

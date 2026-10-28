@@ -1,41 +1,45 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { EmailModule } from './email/email.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Task } from './entity/task.entity';
-import { Project } from './entity/project.entity';
-import { Workspace } from './workspace/workspace.entity';
-import { User } from './entity/user.entity';
-import { WorkspaceService } from './workspace/workspace.service';
-import { WorkspaceModule } from './workspace/workspace.module';
-import { ColumnModule } from './column/column.module';
-import { Membership } from './entity/membership.entity';
-import { TaskModule } from './task/task.module';
-import { ProjectModule } from './project/project.module';
-import { CommentModule } from './comment/comment.module';
+
+// Modules
+import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { ProjectModule } from './project/project.module';
+import { ColumnModule } from './column/column.module';
+import { TaskModule } from './task/task.module';
+import { CommentModule } from './comment/comment.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-        isGlobal: true,
-      }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost', 
-      port: 5432,
-      username: 'reem_dev',
-      password: 'password123',
-      database: 'task_manager_db',
-      entities: [User, Workspace, Membership, Project, Task], 
-      synchronize: true, 
+      isGlobal: true,
+      envFilePath: '.env',
     }),
-    AuthModule, EmailModule, WorkspaceModule, ColumnModule, TaskModule, ProjectModule, CommentModule, UserModule
+
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST', 'localhost'),
+        port: configService.get<number>('DB_PORT', 5432),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_DATABASE'),
+        autoLoadEntities: true,
+        synchronize: configService.get('NODE_ENV') !== 'production',
+      }),
+    }),
+    
+    AuthModule,
+    UserModule,
+    WorkspaceModule,
+    ProjectModule,
+    ColumnModule,
+    TaskModule,
+    CommentModule,
   ],
-  controllers: [AppController],
-  providers: [AppService, WorkspaceService],
 })
 export class AppModule {}

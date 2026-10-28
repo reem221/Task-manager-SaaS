@@ -1,7 +1,7 @@
 // src/column/column.entity.ts
 import { Project } from 'src/project/project.entity';
-import { Workspace } from 'src/workspace/workspace.entity';
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Task } from 'src/task/task.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, OneToMany } from 'typeorm';
 
 @Entity('columns')
 export class KanbanColumn {
@@ -13,12 +13,13 @@ export class KanbanColumn {
 
   @Column({ default: 0 })
   position!: number; 
+  
   @CreateDateColumn()
   createdAt!: Date;
 
-  @ManyToOne(() => Workspace, (workspace) => workspace.id, { onDelete: 'CASCADE' })
-  workspace!: Workspace;
-
   @ManyToOne(() => Project, (project) => project.columns, { onDelete: 'CASCADE', nullable: true })
   project!: Project;
+
+  @OneToMany(() => Task, (task) => task.column)
+  tasks!: Task[];
 }

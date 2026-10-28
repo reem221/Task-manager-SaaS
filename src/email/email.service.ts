@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createTransport, Transporter } from 'nodemailer'; 
 import * as Mail from 'nodemailer/lib/mailer';
-import { User } from 'src/entity/user.entity';
+import { User } from 'src/user/user.entity';
 
 @Injectable()
 export class EmailService {
@@ -35,25 +35,9 @@ export class EmailService {
     return this.nodemailerTransport.sendMail(options);
   }
 
-  public async sendResetPasswordLink(email: string): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
-      throw new BadRequestException('The email address is not registered');
-    }
-
-    const payload = { email };
-
-    const token = this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_VERIFICATION_TOKEN_SECRET'),
-      expiresIn: `${this.configService.get('JWT_VERIFICATION_TOKEN_EXPIRATION_TIME')}s`, 
-    });
-
-    
-    user.passwordResetCode = token;
-    await this.userRepository.save(user);
-
+  public async sendResetPasswordLink(email: string, token: string): Promise<void> {
     const url = `${this.configService.get('EMAIL_RESET_PASSWORD_URL')}?token=${token}`;
-    const text =  `Hi, \nTo reset your password, click here: ${url}`;;
+    const text = `Hi,\nTo reset your password, click here: ${url}\n\nThis link expires in 15 minutes.`;
 
     await this.sendMail({
       to: email,

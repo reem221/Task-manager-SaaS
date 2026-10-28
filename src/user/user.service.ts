@@ -5,6 +5,7 @@ import { User } from './user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
+import { SystemRole } from 'src/common/enums/roles.enum';
 
 @Injectable()
 export class UserService {
@@ -13,10 +14,25 @@ export class UserService {
     private readonly userRepository: Repository<User>,
   ) {}
 
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { email } });
+  }
+
+  async createUser(data: {
+    name: string;
+    email: string;
+    country?: string;
+    systemRole: SystemRole;
+    password: string;
+  }): Promise<User> {
+    const user = this.userRepository.create(data);
+    return this.userRepository.save(user);
+  }
+
   async getProfile(userId: number): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({ where: { id: String(userId) } });
     if (!user) {
-      throw new NotFoundException('المستخدم غير موجود');
+      throw new NotFoundException('user not found');
     }
     delete user.password; 
     return user;
@@ -30,7 +46,7 @@ export class UserService {
 
   
   async changePassword(userId: number, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({ where: { id: String(userId) } });
     if (!user || !user.password) {
       throw new NotFoundException('user not found or password not set');
     }

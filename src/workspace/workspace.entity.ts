@@ -1,13 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne } from 'typeorm';
 import { Membership } from './membership.entity';
 import { Project } from 'src/project/project.entity';
-//import { User } from 'src/entity/user.entity';
-
+import { User } from 'src/user/user.entity';
 
 @Entity('workspace')
 export class Workspace {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
   @Column()
   name!: string;
@@ -18,8 +17,8 @@ export class Workspace {
   @OneToMany(() => Membership, (membership) => membership.workspace)
   members!: Membership[];
 
-  //@ManyToOne(() => User, (user) => user.id, { onDelete: 'CASCADE' })
-  //owner!: User;
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  owner!: User;
 
   @OneToMany(() => Project, (project) => project.workspace)
   projects!: Project[];

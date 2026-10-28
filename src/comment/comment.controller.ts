@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Delete, Body, Param, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { WorkspaceRolesGuard } from '../workspace/guards/workspace-roles.guard';
-import { JwtAuthGuard } from 'src/auth/guards/wt-auth.guard';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { WorkspaceRolesGuard } from 'src/common/guards/workspace-roles.guard';
 
 @Controller('workspaces/:workspaceId/tasks/:taskId/comments')
 @UseGuards(JwtAuthGuard, WorkspaceRolesGuard)

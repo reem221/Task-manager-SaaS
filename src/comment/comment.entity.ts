@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
-//import { User } from '../user/user.entity';
 import { Task } from '../task/task.entity';
+import { User } from 'src/user/user.entity';
 
 @Entity('comments')
 export class Comment {
@@ -16,8 +16,8 @@ export class Comment {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  //@ManyToOne(() => User, { onDelete: 'CASCADE' })
-  //author: User;
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  author!: User;
 
   @ManyToOne(() => Task, { onDelete: 'CASCADE' })
   task!: Task;

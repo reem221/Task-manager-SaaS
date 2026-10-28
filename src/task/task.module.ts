@@ -5,10 +5,11 @@ import { WorkspaceModule } from 'src/workspace/workspace.module';
 import { KanbanColumn } from 'src/column/column.entity';
 import { Task } from './task.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Membership } from 'src/workspace/membership.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, KanbanColumn]),
+    TypeOrmModule.forFeature([Task, KanbanColumn, Membership]),
     WorkspaceModule, 
   ],
   providers: [TaskService],

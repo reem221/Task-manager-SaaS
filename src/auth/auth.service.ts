@@ -1,12 +1,15 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from 'src/entity/user.entity';
 import { EmailService } from 'src/email/email.service';
-import { RegisterDto } from './dto/register.dto';
+import { AdminRegisterDto, RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { User } from 'src/user/user.entity';
+import { UserService } from 'src/user/user.service';
+import { SystemRole } from 'src/common/enums/roles.enum';
+import { createHash, randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -15,72 +18,81 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private readonly userService: UserService
   ) {}
 
-  async register(authDto: RegisterDto) {
-    const { email, name, password, country } = authDto;
-
-    const userExists = await this.userRepository.findOne({ where: { email } });
-    if (userExists) {
-      throw new BadRequestException('This email is already registered');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = this.userRepository.create({
-      name,
-      email,
-      password: hashedPassword,
-      country,
-    });
-    
-    await this.userRepository.save(user);
-    
-    return { message: 'registered successfully' };
+  private sanitize(user: User) {
+  const { password, passwordResetCode, passwordResetExpires, passwordResetVerified, ...safe } = user;
+  return safe;
   }
 
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+private async createAccount(registerDto: RegisterDto, systemRole: SystemRole) {
+  const existing = await this.userService.findByEmail(registerDto.email);
+  if (existing) {
+    throw new ConflictException('Email is already registered');
+  }
 
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
-      throw new UnauthorizedException('Email is incorrect');
-    }
+  const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
-    const isPasswordMatching = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatching) {
-      throw new UnauthorizedException('Password is incorrect');
-    }
+  const newUser = await this.userService.createUser({
+    name: registerDto.name,
+    email: registerDto.email,
+    country: registerDto.country,
+    systemRole,
+    password: hashedPassword,
+  });
 
-    const payload = { sub: user.id, email: user.email };
+  return this.sanitize(newUser);
+}
+
+async signup(registerDto: RegisterDto) {
+  const user = await this.createAccount(registerDto, SystemRole.USER);
+  return { message: 'Account created successfully', user };
+}
+
+async register(registerDto: AdminRegisterDto) {
+  const user = await this.createAccount(
+    registerDto,
+    registerDto.systemRole ?? SystemRole.USER,
+  );
+  return { message: 'User registered successfully', user };
+}
+
+  async login({ email, password }: LoginDto) {
+    const user = await this.userService.findByEmail(email);
+    const valid = !!user?.password && (await bcrypt.compare(password, user.password));
+    if (!user || !valid) throw new UnauthorizedException('Invalid credentials');
+
+    const payload = { sub: user.id, email: user.email, systemRole: user.systemRole};
     return {
       access_token: this.jwtService.sign(payload),
+      user: this.sanitize(user),
     };
   }
 
   async forgotPassword(email: string): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
-        throw new NotFoundException(`No user found for email: ${email}`);
-    }
-    await this.emailService.sendResetPasswordLink(email);
+    const user = await this.userService.findByEmail(email);
+    if (!user) return; 
+
+    const token = randomBytes(32).toString('hex');
+    user.passwordResetCode = createHash('sha256').update(token).digest('hex');
+    user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await this.userRepository.save(user);
+
+    await this.emailService.sendResetPasswordLink(email, token); 
   }
 
   async resetPassword(token: string, password: string): Promise<void> {
-    const email = await this.emailService.decodeConfirmationToken(token);
+    const hash = createHash('sha256').update(token).digest('hex');
+    const user = await this.userRepository.findOne({ where: { passwordResetCode: hash } });
 
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user) {
-        throw new NotFoundException(`No user found for email: ${email}`);
+    if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    user.password = hashedPassword;
-
-    user.passwordResetCode = null; 
+    user.password = await bcrypt.hash(password, 12);
+    user.passwordResetCode = null;
     user.passwordResetExpires = null;
-    user.passwordResetVerified = true;
-
     await this.userRepository.save(user);
   }
 }

@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Req, Get, Param, Patch, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Param, Patch, Delete, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { WorkspaceService } from './workspace.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
-import { WorkspaceRolesGuard } from './guards/workspace-roles.guard';
-import { Roles } from './decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/auth/guards/wt-auth.guard';
-import { WorkspaceRole } from 'src/entity/membership.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { WorkspaceRolesGuard } from 'src/common/guards/workspace-roles.guard';
+import { WorkspaceRole } from 'src/common/enums/roles.enum';
+import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
+import { UpdateMemberRoleDto } from './dto/update-memberrole.dto';
 
 @Controller('workspaces')
 @UseGuards(JwtAuthGuard) 
@@ -23,28 +24,55 @@ export class WorkspaceController {
 
   @Get(':workspaceId')
   @UseGuards(WorkspaceRolesGuard)
-  async findOne(@Param('workspaceId') workspaceId: number) {
+  async findOne(@Param('workspaceId') workspaceId: string) {
     return this.workspaceService.findOne(workspaceId);
   }
 
   @Patch(':workspaceId')
   @UseGuards(WorkspaceRolesGuard)
-  @Roles(WorkspaceRole.ADMIN)
-  async update(@Param('workspaceId') workspaceId: number, @Body() updateDto: Partial<CreateWorkspaceDto>) {
+  @WorkspaceRoles(WorkspaceRole.ADMIN, WorkspaceRole.OWNER)
+  async update(@Param('workspaceId') workspaceId: string, @Body() updateDto: Partial<CreateWorkspaceDto>) {
     return this.workspaceService.update(workspaceId, updateDto);
   }
 
   @Delete(':workspaceId')
   @UseGuards(WorkspaceRolesGuard)
-  @Roles(WorkspaceRole.ADMIN)
-  async remove(@Param('workspaceId') workspaceId: number) {
+  @WorkspaceRoles(WorkspaceRole.ADMIN, WorkspaceRole.OWNER)
+  async remove(@Param('workspaceId') workspaceId: string) {
     return this.workspaceService.remove(workspaceId);
   }
  
   @Post(':workspaceId/members')
   @UseGuards(WorkspaceRolesGuard)
-  @Roles(WorkspaceRole.ADMIN)
-  async addMember(@Param('workspaceId') workspaceId: number, @Body('email') email: string) {
+  @WorkspaceRoles(WorkspaceRole.ADMIN, WorkspaceRole.OWNER)
+  async addMember(@Param('workspaceId') workspaceId: string, @Body('email') email: string) {
     return this.workspaceService.addMember(workspaceId, email);
+  }
+
+  @Get(':workspaceId/members')
+  @UseGuards(WorkspaceRolesGuard)
+  getMembers(@Param('workspaceId', ParseUUIDPipe) workspaceId: string) {
+    return this.workspaceService.getMembers(workspaceId);
+  }
+
+  @Patch(':workspaceId/members/:userId')
+  @UseGuards(WorkspaceRolesGuard)
+  @WorkspaceRoles(WorkspaceRole.OWNER)
+  updateMemberRole(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: UpdateMemberRoleDto,
+  ) {
+    return this.workspaceService.updateMemberRole(workspaceId, userId, dto.role);
+  }
+
+  @Delete(':workspaceId/members/:userId')
+  @UseGuards(WorkspaceRolesGuard)
+  @WorkspaceRoles(WorkspaceRole.ADMIN, WorkspaceRole.OWNER)
+  removeMember(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.workspaceService.removeMember(workspaceId, userId);
   }
 }
